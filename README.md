@@ -43,8 +43,7 @@ Generated figures corresponding to visualizations in the manuscript.
 - `query_type_comparison.pdf`
 - `context_ablation.pdf`
 
-### `evaluation_notebook.ipynb`
-Primary notebook used to execute the empirical evaluation suite.
+
 
 ### `pseudocode_and_hyperparameters.md`
 Algorithmic pseudocode and principal hyperparameter settings for the retrieval and security components.
@@ -89,7 +88,7 @@ The full implementation is withheld during peer review to preserve double-blind 
 
 ## Execution Environment
 
-Experiments were conducted in a controlled Google Colab environment using NVIDIA T4 GPU hardware. Random seeds were fixed across all relevant libraries to ensure deterministic execution.
+Experiments were conducted in a controlled  environment using NVIDIA T4 GPU hardware. Random seeds were fixed across all relevant libraries to ensure deterministic execution.
 
 ---
 

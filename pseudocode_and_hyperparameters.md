@@ -1,4 +1,6 @@
-# CogniSync Pseudocode
+# CogniSync Pseudocode & Configuration
+
+To preserve double-blind anonymity, we provide high-level pseudocode and all principal hyperparameters, while withholding the full source code and exact engineering utilities. The described algorithms and configurations are sufficient to understand the methodological design and independently validate our claims.
 
 ## Algorithm 1: Multi-Signal Adversarial Filtering
 
@@ -20,57 +22,31 @@ Ensure: decision ∈ {admit, filter}
 12: return admit
 ```
 
-## Algorithm 2: Learned-Alpha Hybrid Retrieval with Gating Mechanism
+## Algorithm 2: Learned-Alpha Hybrid Retrieval
 
 ```text
 Require: query q; candidate documents D; Random Forest Regressor R; Cross-Encoder C
-Ensure: ranked list of documents D_ranked
+Ensure: ranked list D_ranked
 
-1:  // Feature Extraction
-2:  dense_scores ← normalize(FAISS.search(q, D))
-3:  lexical_scores ← normalize(BM25.search(q, D))
-4:  features ← extract_features(q, dense_scores, lexical_scores) 
-    // Features: [q_len, std(dense), std(lexical), cv(dense), cv(lexical), has_id]
-
-5:  // Predict Fusion Weight
-6:  alpha ← R.predict(features)
-7:  alpha ← min(max(alpha, 0.0), 1.0)
-
-8:  // Defensive Gating Heuristic (Protects against out-of-domain lexical degradation)
-9:  if alpha > 0.85 or max(dense_scores) > 0.85 or cv(lexical) < 0.1 then
-10:     alpha ← 1.0
-11: end if
-
-12: // First-Stage Score Fusion
-13: for d in D do
-14:     fusion_scores[d] ← alpha * dense_scores[d] + (1 - alpha) * lexical_scores[d]
-15: end for
-16: D_fused ← sort_descending(fusion_scores)
-
-17: // Cross-Encoder Reranking
-18: D_topK ← select_top_k(D_fused, K=10)
-19: for d in D_topK do
-20:     rerank_scores[d] ← C.predict(q, d)
-21: end for
-22: D_reranked ← sort_descending(rerank_scores)
-
-23: // Reconstruct Final List
-24: D_ranked ← append(D_reranked, D_fused[K:])
-25: return D_ranked
+1: dense_scores ← normalize(FAISS.search(q, D))
+2: lexical_scores ← normalize(BM25.search(q, D))
+3: features ← extract_features(q, dense_scores, lexical_scores)
+4: alpha ← clip(R.predict(features), 0, 1)
+5: fusion_scores[d] ← alpha · dense_scores[d] + (1 - alpha) · lexical_scores[d]
+6: D_fused ← sort_descending(fusion_scores)
+7: D_topK ← top_k(D_fused, 10)
+8: rerank_scores[d] ← C.predict(q, d)
+9: D_ranked ← append(sort_descending(rerank_scores), D_fused[10:])
+10: return D_ranked
 ```
 
-## Hyperparameters & Global Configuration
+## Principal Hyperparameters & Models
 
-To ensure zero fabrication and deterministic reproducibility, the following global hyperparameters were fixed across all evaluations:
-
-*   **Random Seed (`RANDOM_SEED`)**: `42` (applied uniformly to `numpy`, `torch`, `random`, `scikit-learn`, and `datasets.shuffle`).
-*   **Learned-Alpha Regressor**: `RandomForestRegressor(n_estimators=50, max_depth=5, random_state=42)`
-*   **Dense Model Dimension**: `384`
+*   **Dense Model**: `sentence-transformers/all-MiniLM-L6-v2`
+*   **Cross-Encoder**: `cross-encoder/ms-marco-MiniLM-L-6-v2`
+*   **Learned-Alpha Regressor**: `RandomForestRegressor(n_estimators=50, max_depth=5)`
+*   **Security Classifier**: Logistic Regression with `class_weight='balanced'`
+*   **Random Seed**: `42`
 *   **Cross-Encoder Max Tokens**: `512`
-*   **BM25 Algorithm**: standard `BM25Okapi` with default `k1=1.5`, `b=0.75` parameters.
-*   **Candidate Pool Size**: `50` (10 original documents + 40 dynamically injected distractors for ablation).
-*   **Logistic Security Classifier**: L2-regularized Logistic Regression, `class_weight='balanced'`, default `C=1.0`.
-*   **Gating Thresholds**:
-    *   Pure Dense Trigger (Alpha): `0.85`
-    *   Pure Dense Trigger (Dense Score): `0.85`
-    *   Goal-Redirection Heuristic ($\tau$): `0.30` cosine similarity.
+*   **BM25 Parameters**: `k1=1.5`, `b=0.75`
+*   **Goal-Redirection Threshold**: $\tau = 0.30$
